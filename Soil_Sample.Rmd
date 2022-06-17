@@ -1,0 +1,115 @@
+---
+title: "Soil sample plan"
+author: "Stanley Mastrantonis"
+date: '2022-06-17'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf)
+library(leaflet)
+library(mapview)
+library(mapedit)
+library(leafpm)
+library(leafem)
+library(shiny)
+library(tidyverse)
+
+```
+
+```{r data read in, include = TRUE}
+cpes = st_read('C:/Users/00097030/LocalData/Spatial Data/CPES/shp/Client_Property_Event_System_Properties_DPIRD_018.shp')%>%
+       st_transform(4326)%>%
+       st_make_valid()
+
+#cpes_wgs  = st_transform(cpes, 4326)
+
+```
+
+
+```{r leaflet draw, include = FALSE}
+i <<- 1
+i_edit <<- 1
+feat_list  <<- list()
+edit_list <<- list()
+
+ui = fluidPage(
+  tabsetPanel(
+    tabPanel("Map",
+             leafletOutput("mymap"),
+             textInput("label", "Label", "Smith_Pad_1_Soil")
+    ),
+    tabPanel("Debug",
+             verbatimTextOutput("debug_out")
+    )
+  )
+  
+)
+
+
+server <- function(input, output, session){
+  output$debug_out <- renderPrint(reactiveValuesToList(input))
+  
+  output$mymap <- renderLeaflet(
+    leaflet() %>%
+      addProviderTiles("Esri.WorldImagery") %>%
+      addPolygons(data = cpes,  opacity = 0.5,
+                   fill = TRUE,
+                   fillColor = 'red',
+                   fillOpacity = 0.2,) %>%
+      setView(lng = 116, lat = -30.0, zoom = 5) %>%
+      addMouseCoordinates() %>%
+      addPmToolbar(targetGroup = 'draw',
+        toolbarOptions = pmToolbarOptions(drawMarker = FALSE, 
+                                          drawPolyline = FALSE,
+                                          cutPolygon = TRUE,
+                                          position = "topright"),
+        drawOptions = pmDrawOptions(snappable = FALSE, allowSelfIntersection = FALSE),
+        editOptions = pmEditOptions(preventMarkerRemoval = TRUE, draggable = TRUE),
+        cutOptions = pmCutOptions(snappable = FALSE, allowSelfIntersection = FALSE)
+      )
+  )
+  
+  
+  observeEvent(input$mymap_draw_new_feature,{
+    #print(input)
+    feature <<- input$mymap_draw_new_feature
+    feat_list[[i]] <<- geojsonsf::geojson_sf(jsonify::to_json(feature, unbox = T))
+    i <<- i+1
+  })
+  
+  observeEvent(input$mymap_draw_edited_features, {
+    cutfeature <<- input$mymap_draw_edited_features
+    edit_list[[i]] <<- geojsonsf::geojson_sf(jsonify::to_json(cutfeature, unbox = T))
+    i_edit <<- i_edit+1
+    #print(cutfeature)
+    
+  })
+  
+
+  
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+```{r bind}
+
+result = do.call(rbind, lapply(feat_list, st_sf))
+
+map_aoi_create = leaflet() %>% 
+                 addTiles() %>% 
+                 addPolygons(data = result) %>%
+                 addProviderTiles("Esri.WorldImagery") %>%
+                 #setView(lng = -166, lat = 58.0, zoom = 5) %>%
+                 #addMouseCoordinates() %>%
+                 addScaleBar()  
+  
+map_aoi_create
+
+
+
+```
+
