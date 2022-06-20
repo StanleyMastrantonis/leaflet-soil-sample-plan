@@ -20,9 +20,11 @@ library(tidyverse)
 ```
 
 ```{r data read in, include = TRUE}
-cpes = st_read('C:/Users/00097030/LocalData/Spatial Data/CPES/shp/Client_Property_Event_System_Properties_DPIRD_018.shp')%>%
+cpes = st_read('C:/Users/00097030/LocalData/Spatial Data/CPES/shp/CPES_ag.shp')%>%
        st_transform(4326)%>%
-       st_make_valid()
+       st_make_valid()%>%
+       st_cast('POLYGON')
+       #st_union()
 
 #cpes_wgs  = st_transform(cpes, 4326)
 
@@ -55,12 +57,18 @@ server <- function(input, output, session){
   output$mymap <- renderLeaflet(
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery") %>%
-      addPolygons(data = cpes,  opacity = 0.5,
-                   fill = TRUE,
+      addPolygons(data = cpes,  
+                   opacity = 0.5,
+                   color = 'red',
+                   weight = 2,
+                   fill = FALSE,
                    fillColor = 'red',
-                   fillOpacity = 0.2,) %>%
+                   fillOpacity = 0.1,
+                   group = "CPES") %>%
       setView(lng = 116, lat = -30.0, zoom = 5) %>%
+      groupOptions("CPES", zoomLevels = 5:20) %>%
       addMouseCoordinates() %>%
+      addLayersControl(overlayGroups = c("CPES"))%>%
       addPmToolbar(targetGroup = 'draw',
         toolbarOptions = pmToolbarOptions(drawMarker = FALSE, 
                                           drawPolyline = FALSE,
