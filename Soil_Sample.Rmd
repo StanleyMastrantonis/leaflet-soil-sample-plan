@@ -16,6 +16,9 @@ library(leafpm)
 library(leafem)
 library(shiny)
 library(tidyverse)
+library(raster)
+library(terra)
+#webshot::install_phantomjs()
 
 ```
 
@@ -27,6 +30,8 @@ cpes = st_read('C:/Users/00097030/LocalData/Spatial Data/CPES/shp/CPES_ag.shp')%
        #st_union()
 
 #cpes_wgs  = st_transform(cpes, 4326)
+
+radmap = rast('C:/Users/00097030/LocalData/Spatial Data/RADmap/Tiff/clipped/RGB_Stack.tif')
 
 ```
 
@@ -41,7 +46,9 @@ ui = fluidPage(
   tabsetPanel(
     tabPanel("Map",
              leafletOutput("mymap", width="100%",height="600px"),
-             textInput("label", "Label", "Smith_Pad_1_Soil")
+             textInput("label", "Label", "Smith_Pad_1_Soil"),
+             downloadButton( outputId = "dl"),
+             actionButton(inputId = "quit", label = "Quit")
     ),
     tabPanel("Debug",
              verbatimTextOutput("debug_out")
@@ -53,9 +60,10 @@ ui = fluidPage(
 
 server = function(input, output, session){
   output$debug_out = renderPrint(reactiveValuesToList(input))
+  mymap = reactiveValues(dat = 0)
   
-  output$mymap = renderLeaflet(
-    leaflet() %>%
+  output$mymap = renderLeaflet({
+  mymap$dat = leaflet() %>%
       addProviderTiles("Esri.WorldImagery") %>%
       addScaleBar(position = "bottomleft") %>%
       addMiniMap(tiles = providers$Esri.NatGeoWorldMap) %>%
@@ -80,7 +88,7 @@ server = function(input, output, session){
         editOptions = pmEditOptions(preventMarkerRemoval = TRUE, draggable = TRUE),
         cutOptions = pmCutOptions(snappable = FALSE, allowSelfIntersection = FALSE)
       )
-  )
+  })
   
   
   observeEvent(input$mymap_draw_new_feature,{
@@ -98,6 +106,20 @@ server = function(input, output, session){
     
   })
   
+  
+    observe({
+      if (input$quit == 1) stopApp()
+     })
+
+
+  
+  output$dl = downloadHandler(
+        filename = "map.png",
+        content = function(file) {
+          mapshot(mymap$dat, file = file)
+        }
+      )
+  
 
   
 }
@@ -105,14 +127,18 @@ server = function(input, output, session){
 shinyApp(ui = ui, server = server)
 ```
 
-```{r bind}
+```{r bind, include = FALSE}
 
 result = do.call(rbind, lapply(feat_list, st_sf))
+pol_vec = vect(result)
+rad_crop = brick(terra::crop(radmap, pol_vec, mask=TRUE, snap = 'out'))
 
 map_aoi_create = leaflet() %>% 
                  addTiles() %>% 
+                 addRasterRGB(rad_crop,3,2,1, group = "RADmap", na.color = NA)%>%
                  addPolygons(data = result) %>%
                  addProviderTiles("Esri.WorldImagery") %>%
+                 addLayersControl(overlayGroups = c("RADmap"))%>%
                  #setView(lng = -166, lat = 58.0, zoom = 5) %>%
                  #addMouseCoordinates() %>%
                  addScaleBar()  
