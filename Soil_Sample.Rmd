@@ -22,8 +22,8 @@ library(tidyverse)
 ```{r data read in, include = TRUE}
 cpes = st_read('C:/Users/00097030/LocalData/Spatial Data/CPES/shp/CPES_ag.shp')%>%
        st_transform(4326)%>%
-       st_make_valid()%>%
-       st_cast('POLYGON')
+       st_make_valid()
+       #st_cast('POLYGON')
        #st_union()
 
 #cpes_wgs  = st_transform(cpes, 4326)
@@ -40,7 +40,7 @@ edit_list <<- list()
 ui = fluidPage(
   tabsetPanel(
     tabPanel("Map",
-             leafletOutput("mymap"),
+             leafletOutput("mymap", width="100%",height="600px"),
              textInput("label", "Label", "Smith_Pad_1_Soil")
     ),
     tabPanel("Debug",
@@ -51,12 +51,14 @@ ui = fluidPage(
 )
 
 
-server <- function(input, output, session){
-  output$debug_out <- renderPrint(reactiveValuesToList(input))
+server = function(input, output, session){
+  output$debug_out = renderPrint(reactiveValuesToList(input))
   
-  output$mymap <- renderLeaflet(
+  output$mymap = renderLeaflet(
     leaflet() %>%
       addProviderTiles("Esri.WorldImagery") %>%
+      addScaleBar(position = "bottomleft") %>%
+      addMiniMap(tiles = providers$Esri.NatGeoWorldMap) %>%
       addPolygons(data = cpes,  
                    opacity = 0.5,
                    color = 'red',
@@ -66,7 +68,7 @@ server <- function(input, output, session){
                    fillOpacity = 0.1,
                    group = "CPES") %>%
       setView(lng = 116, lat = -30.0, zoom = 5) %>%
-      groupOptions("CPES", zoomLevels = 5:20) %>%
+      groupOptions("CPES", zoomLevels = 7:500) %>%
       addMouseCoordinates() %>%
       addLayersControl(overlayGroups = c("CPES"))%>%
       addPmToolbar(targetGroup = 'draw',
